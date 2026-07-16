@@ -1,0 +1,134 @@
+import os
+import cv2
+import json
+import numpy as np
+import base64
+import face_recognition
+
+from django.conf import settings
+from django.contrib.auth import login
+from django.contrib.auth.models import User
+from django.http import JsonResponse
+from django.shortcuts import render, redirect
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+
+def normalizar_iluminacion_rostro(imagen_cv2):
+    gris = cv2.cvtColor(imagen_cv2, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    imagen_ecualizada_gris = clahe.apply(gris)
+    imagen_rgb = cv2.cvtColor(imagen_ecualizada_gris, cv2.COLOR_GRAY2RGB)
+    return imagen_rgb
+
+@csrf_exempt
+@login_required
+def registrar_rostro(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            uri_imagen = data.get("imagen")
+            
+            if not uri_imagen:
+                return JsonResponse({"success": False, "message": "No se recibió ninguna imagen."})
+            
+            header, encoded = uri_imagen.split(",", 1)
+            datos_binarios = base64.b64decode(encoded)
+            np_arr = np.frombuffer(datos_binarios, np.uint8)
+            img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+            if img_bgr is None:
+                return JsonResponse({"success": False, "message": "La imagen está corrupta o vacía."})
+
+            img_procesada = normalizar_iluminacion_rostro(img_bgr)
+            rostros_detectados = face_recognition.face_encodings(img_procesada)
+            
+            if len(rostros_detectados) == 0:
+                return JsonResponse({
+                    "success": False, 
+                    "message": "No se detectó ningún rostro. Asegúrate de mirar de frente y tener el rostro despejado."
+                })
+
+            rostro_codificado = rostros_detectados[0]
+            vector_json_string = json.dumps(rostro_codificado.tolist())
+            usuario_actual = request.user
+            
+            if hasattr(usuario_actual, 'perfil'):
+                usuario_actual.perfil.rostro_biometrico = vector_json_string
+                usuario_actual.perfil.save()
+            else:
+                usuario_actual.rostro_biometrico = vector_json_string
+                usuario_actual.save()
+
+            return JsonResponse({
+                "success": True, 
+                "message": "¡Rostro maestro configurado con éxito!"
+            })
+
+        except Exception as e:
+            return JsonResponse({"success": False, "message": f"Error interno del servidor: {str(e)}"})
+
+    return render(request, "inventario/registrar_facial.html")
+
+@csrf_exempt
+def login_view(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            uri_imagen = data.get("imagen")
+
+            if not uri_imagen:
+                return JsonResponse({"success": False, "message": "No se recibió ninguna imagen de la cámara."})
+
+            header, encoded = uri_imagen.split(",", 1)
+            datos_binarios = base64.b64decode(encoded)
+            np_arr = np.frombuffer(datos_binarios, np.uint8)
+            img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+            if img_bgr is None:
+                return JsonResponse({"success": False, "message": "No se pudo leer la imagen de captura."})
+
+            img_procesada = normalizar_iluminacion_rostro(img_bgr)
+            rostros_actuales = face_recognition.face_encodings(img_procesada)
+            
+            if len(rostros_actuales) == 0:
+                return JsonResponse({
+                    "success": False, 
+                    "message": "No se detectó un rostro claro. Centra tu cara e inténtalo de nuevo."
+                })
+
+            rostro_actual_codificado = rostros_actuales[0]
+            usuarios = User.objects.all()
+            usuario_encontrado = None
+
+            for usuario in usuarios:
+                rostro_guardado_str = None
+                
+                if hasattr(usuario, 'perfil') and getattr(usuario.perfil, 'rostro_biometrico', None):
+                    rostro_guardado_str = usuario.perfil.rostro_biometrico
+                elif getattr(usuario, 'rostro_biometrico', None):
+                    rostro_guardado_str = usuario.rostro_biometrico
+
+                if rostro_guardado_str:
+                    rostro_guardado = np.array(json.loads(rostro_guardado_str))
+                    coincidencias = face_recognition.compare_faces([rostro_guardado], rostro_actual_codificado, tolerance=0.60)
+                    
+                    if coincidencias[0]:
+                        usuario_encontrado = usuario
+                        break
+
+            if usuario_encontrado is not None:
+                login(request, usuario_encontrado)
+                return JsonResponse({
+                    "success": True, 
+                    "redirect_url": "/dashboard/"
+                })
+            else:
+                return JsonResponse({
+                    "success": False, 
+                    "message": "Rostro no reconocido. Asegúrate de estar registrado en este equipo."
+                })
+
+        except Exception as e:
+            return JsonResponse({"success": False, "message": f"Error en la verificación: {str(e)}"})
+
+    return render(request, "login.html")

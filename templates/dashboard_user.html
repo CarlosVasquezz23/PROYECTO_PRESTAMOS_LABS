@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de Usuario - UNEMI{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10 text-center">
+            <div class="card shadow p-5 border-0 rounded-3 bg-white">
+                <i class="bi bi-person-workspace text-success mb-3" style="font-size: 4rem;"></i>
+                <h2 class="fw-bold text-dark">¡Bienvenido a tu Panel de Usuario!</h2>
+                <p class="text-muted mt-2">Desde aquí podrás gestionar tus solicitudes de préstamos de equipos de laboratorio y revisar tus estados.</p>
+                
+                <div class="alert alert-dark d-flex align-items-center justify-content-center border-0 rounded-3 my-4 p-3 shadow-sm bg-light text-dark">
+                    <i class="bi bi-person-bounding-box text-dark fs-4 me-3"></i>
+                    <div class="text-start">
+                        <strong class="d-block">¿Quieres iniciar sesión más rápido?</strong>
+                        <span class="text-muted small">Configura tu perfil biométrico facial para no usar contraseñas.</span>
+                    </div>
+                    <a href="{% url 'registrar_rostro' %}" class="btn btn-dark btn-sm rounded-pill px-3 ms-auto fw-bold">
+                        Configurar Rostro
+                    </a>
+                </div>
+
+                <div class="text-start mt-5 mb-3">
+                    <h4 class="fw-bold text-secondary"><i class="bi bi-clock-history"></i> Mi Historial de Préstamos</h4>
+                </div>
+                
+                <div class="table-responsive rounded-3 shadow-sm mb-4">
+                    <table class="table table-striped table-hover align-middle m-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col">Equipo</th>
+                                <th scope="col">Marca / Modelo</th>
+                                <th scope="col">Ubicación</th>
+                                <th scope="col">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prestamo in prestamos %}
+                            <tr>
+                                <td class="fw-semibold text-start">{{ prestamo.equipo.nombre }}</td>
+                                <td>{{ prestamo.equipo.marca }} {{ prestamo.equipo.modelo }}</td>
+                                <td><span class="badge bg-secondary">{{ prestamo.equipo.ubicacion }}</span></td>
+                                <td>
+                                    {% if prestamo.devuelto %}
+                                        <span class="badge bg-success px-3 py-2">Devuelto</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark px-3 py-2">Activo</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-muted py-4">
+                                    <i class="bi bi-info-circle"></i> No registras solicitudes de equipos en este laboratorio.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <hr class="my-4">
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center align-items-center">
+                    {# <a href="{% url 'crear_prestamo' %}" class="btn btn-success px-4 py-2 fw-semibold">Solicitar Préstamo</a> #}
+                    
+                    <form action="{% url 'logout' %}" method="post" class="d-inline m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-secondary px-4 py-2">Cerrar Sesión</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

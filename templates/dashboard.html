@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block encabezado %}
+Dashboard
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid p-0">
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex justify-content-center align-items-center"
+                        style="width:55px;height:55px;">
+                        <i class="bi bi-laptop fs-4"></i>
+                    </div>
+
+                    <div>
+                        <small class="text-secondary">Total Equipos</small>
+                        <!-- Agregamos id="stat-total" -->
+                        <h3 class="fw-bold mb-0" id="stat-total">{{ total_equipos }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-success bg-opacity-10 text-success d-flex justify-content-center align-items-center"
+                        style="width:55px;height:55px;">
+                        <i class="bi bi-check-circle fs-4"></i>
+                    </div>
+
+                    <div>
+                        <small class="text-secondary">Disponibles</small>
+                        <!-- Agregamos id="stat-disponibles" -->
+                        <h3 class="fw-bold mb-0" id="stat-disponibles">{{ disponibles }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-danger bg-opacity-10 text-danger d-flex justify-content-center align-items-center"
+                        style="width:55px;height:55px;">
+                        <i class="bi bi-box-arrow-right fs-4"></i>
+                    </div>
+
+                    <div>
+                        <small class="text-secondary">Prestados</small>
+                        <!-- Agregamos id="stat-prestados" -->
+                        <h3 class="fw-bold mb-0" id="stat-prestados">{{ prestados }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-warning bg-opacity-10 text-warning d-flex justify-content-center align-items-center"
+                        style="width:55px;height:55px;">
+                        <i class="bi bi-tools fs-4"></i>
+                    </div>
+
+                    <div>
+                        <small class="text-secondary">Mantenimiento</small>
+                        <!-- Agregamos id="stat-mantenimiento" -->
+                        <h3 class="fw-bold mb-0" id="stat-mantenimiento">{{ mantenimiento }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">Préstamos activos</h5>
+
+                <!-- Agregamos id="stat-activos" -->
+                <span class="badge bg-success fs-6" id="stat-activos">
+                    {{ prestamos_activos }}
+                </span>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+
+        <div class="card-header bg-white border-0 pt-4">
+            <h5 class="fw-bold">
+                Estado de los Equipos
+            </h5>
+        </div>
+
+        <div class="card-body">
+            <div style="height:300px;">
+                <canvas id="graficoEquipos"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // --- LÓGICA DEL GRÁFICO INICIAL ---
+    const datos = JSON.parse('{{ equipos_json|escapejs }}');
+
+    const labels = datos.map(x => x.estado);
+    const valores = datos.map(x => x.total);
+
+    new Chart(document.getElementById("graficoEquipos"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Cantidad",
+                data: valores,
+                borderWidth: 1,
+                backgroundColor: [
+                    "#16a34a",
+                    "#dc2626",
+                    "#f59e0b"
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // ==========================================
+    // NUEVA LÓGICA AJAX PARA TIEMPO REAL
+    // ==========================================
+    function actualizarDashboardEnTiempoReal() {
+        // Hacemos la petición silenciosa a la API que creamos
+        fetch("{% url 'api_estadisticas' %}")
+            .then(response => response.json())
+            .then(data => {
+                // Actualizamos las tarjetas
+                let elTotal = document.getElementById('stat-total');
+                if (elTotal) elTotal.innerText = data.total_equipos;
+
+                let elDisponibles = document.getElementById('stat-disponibles');
+                if (elDisponibles) elDisponibles.innerText = data.disponibles;
+
+                let elPrestados = document.getElementById('stat-prestados');
+                if (elPrestados) elPrestados.innerText = data.prestados;
+
+                let elMantenimiento = document.getElementById('stat-mantenimiento');
+                if (elMantenimiento) elMantenimiento.innerText = data.mantenimiento;
+                
+                let elActivos = document.getElementById('stat-activos');
+                if (elActivos) elActivos.innerText = data.prestamos_activos;
+            })
+            .catch(error => console.error("Error en AJAX:", error));
+    }
+
+    // Le indicamos al navegador que ejecute la función cada 3 segundos
+    setInterval(actualizarDashboardEnTiempoReal, 3000);
+
+</script>
+
+{% endblock %}
