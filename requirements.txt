@@ -11,3 +11,5 @@ tzdata==2026.2
 whitenoise==6.12.0
 opencv-python-headless
 numpy
+cmake
+face_recognition
