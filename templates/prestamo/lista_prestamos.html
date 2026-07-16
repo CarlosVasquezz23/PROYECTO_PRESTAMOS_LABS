@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Control de Préstamos - UNEMI{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <div class="card border-0 shadow-sm p-4 rounded-4 bg-white">
+        
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
+            <div>
+                <h5 class="fw-bold m-0" style="font-size: 1.4rem; color: #002D62 !important;">Control de Préstamos</h5>
+                <p class="text-muted mb-0 small">Administración en tiempo real de los equipos del laboratorio</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'prestamo:reporte_prestamos_pdf' %}" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3 fw-medium d-flex align-items-center gap-2">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </a>
+                <a href="{% url 'prestamo:crear_prestamo' %}" class="btn btn-sm px-3 py-2 rounded-3 text-white fw-medium d-flex align-items-center gap-2 shadow-sm" style="background-color: #002D62; border: none;">
+                    <i class="bi bi-plus-lg"></i> Nuevo préstamo
+                </a>
+            </div>
+        </div>
+
+        <form method="get" action="{% url 'prestamo:lista_prestamos' %}" class="row g-2 mb-4" id="form-filtros">
+            <div class="col-12 col-md-7">
+                <div class="position-relative">
+                    <i class="bi bi-search text-muted position-absolute top-50 start-0 translate-middle-y ms-3" style="font-size: 0.9rem;"></i>
+                    <input 
+                        type="text" 
+                        id="input-buscar"
+                        name="buscar" 
+                        class="form-control py-2 ps-5 pe-3 rounded-3 shadow-none text-secondary bg-light" 
+                        style="font-size: 0.88rem;" 
+                        placeholder="Buscar por usuario (nombre) o código del equipo..." 
+                        value="{{ buscar }}"
+                    >
+                </div>
+            </div>
+            
+            <div class="col-12 col-sm-8 col-md-3">
+                <select id="select-estado" name="estado" class="form-select py-2 rounded-3 shadow-none text-secondary bg-light" style="font-size: 0.88rem;">
+                    <option value="" {% if not estado %}selected{% endif %}>Todos los préstamos</option>
+                    <option value="Activo" {% if estado == "Activo" %}selected{% endif %}>Solo Pendientes (Activos)</option>
+                    <option value="Devuelto" {% if estado == "Devuelto" %}selected{% endif %}>Historial (Devueltos)</option>
+                </select>
+            </div>
+            
+            <div class="col-12 col-sm-4 col-md-2">
+                <button type="submit" class="btn w-100 py-2 rounded-3 text-white fw-medium d-flex align-items-center justify-content-center gap-2 shadow-sm" style="background-color: #002D62; border: none;">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table align-middle text-secondary" style="font-size: 0.88rem;">
+                <thead style="background-color: #002D62;">
+                    <tr class="text-uppercase text-white" style="font-size: 0.75rem; letter-spacing: 0.02em;">
+                        <th class="py-3 px-3 fw-bold rounded-start">Usuario</th>
+                        <th class="py-3 px-3 fw-bold">Equipo</th>
+                        <th class="py-3 px-3 fw-bold">Fecha de Salida</th>
+                        <th class="py-3 px-3 fw-bold">Estado</th>
+                        <th class="py-3 px-3 text-center fw-bold rounded-end">Acción Rápida</th>
+                    </tr>
+                </thead>
+                
+                <tbody class="table-group-divider border-light-subtle" id="tabla-prestamos-body">
+                    {% for prestamo in prestamos %}
+                    <tr class="hover-bg-light transition-all">
+                        <td class="px-3 fw-semibold text-dark">
+                            <i class="bi bi-person-badge text-primary me-1"></i> {{ prestamo.usuario.username }}
+                        </td>
+                        <td class="px-3">
+                            <span class="fw-medium text-dark">{{ prestamo.equipo.codigo }}</span><br>
+                            <small class="text-muted">{{ prestamo.equipo.nombre }}</small>
+                        </td>
+                        <td class="px-3">{{ prestamo.fecha_prestamo|date:"d/m/Y H:i" }}</td>
+                        <td class="px-3">
+                            {% if prestamo.estado == "Activo" %}
+                                <span class="badge rounded-pill px-3 py-2 fw-medium shadow-sm" style="background-color: rgba(242, 169, 0, 0.15); color: #b07d00; font-size: 0.75rem;">
+                                    ● Activo / Pendiente
+                                </span>
+                            {% else %}
+                                <span class="badge rounded-pill px-3 py-2 fw-medium shadow-sm" style="background-color: #e6f4ea; color: #137333; font-size: 0.75rem;">
+                                    ● Devuelto
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 text-center">
+                            {% if prestamo.estado == "Activo" %}
+                                <form method="POST" action="{% url 'prestamo:procesar_devolucion' prestamo.id %}" onsubmit="return confirm('¿Confirmas que el equipo {{ prestamo.equipo.codigo }} ha sido devuelto en buenas condiciones?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm text-white px-3 py-1 rounded-pill shadow-sm" style="background-color: #198754; font-weight: 500;">
+                                        <i class="bi bi-box-arrow-in-down"></i> Recibir
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="text-muted small"><i class="bi bi-check2-all"></i> Finalizado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-clipboard-x d-block fs-1 mb-3 opacity-50" style="color: #002D62;"></i>
+                            <span class="fs-6">No se encontraron préstamos registrados con esos filtros.</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function actualizarTablaEnTiempoReal() {
+        // Detectar si el usuario está escribiendo o interactuando con los campos para pausar la recarga asíncrona
+        const inputBuscar = document.getElementById('input-buscar');
+        const selectEstado = document.getElementById('select-estado');
+
+        if (document.activeElement === inputBuscar) {
+            // Si el cursor está dentro del buscador, no refrescamos para no interrumpir al usuario
+            return;
+        }
+
+        const urlConFiltros = window.location.pathname + window.location.search;
+
+        fetch(urlConFiltros)
+            .then(response => response.text())
+            .then(html => {
+                let parser = new DOMParser();
+                let documentoTemporal = parser.parseFromString(html, 'text/html');
+
+                let nuevoBodyElement = documentoTemporal.getElementById('tabla-prestamos-body');
+                
+                if (nuevoBodyElement) {
+                    let nuevoBody = nuevoBodyElement.innerHTML;
+                    document.getElementById('tabla-prestamos-body').innerHTML = nuevoBody;
+                }
+            })
+            .catch(error => console.error("Error actualizando la tabla:", error));
+    }
+
+    // Ejecuta la actualización automática cada 4 segundos
+    setInterval(actualizarTablaEnTiempoReal, 4000);
+</script>
+{% endblock %}

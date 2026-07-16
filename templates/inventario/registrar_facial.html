@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Rostro Biométrico{% endblock %}
+
+{% block content %}
+<style>
+    /* Línea del Láser */
+    .scanner-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(to bottom, rgba(0, 255, 0, 0), rgba(0, 255, 0, 0.8));
+        box-shadow: 0px 0px 12px 3px rgba(0, 255, 0, 0.7);
+        z-index: 10;
+        display: none; /* Oculto por defecto, se activa dinámicamente */
+    }
+
+    /* Animación del Movimiento Sube y Baja */
+    @keyframes scanAnimation {
+        0% { top: 0%; }
+        50% { top: 100%; }
+        100% { top: 0%; }
+    }
+
+    /* Clase activa que inicia la animación */
+    .scanning .scanner-line {
+        display: block;
+        animation: scanAnimation 2s infinite linear;
+    }
+
+    /* Sombra verdosa sutil sobre la cámara durante el escaneo */
+    .scanning::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 255, 0, 0.04);
+        pointer-events: none;
+        z-index: 9;
+    }
+</style>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="card shadow p-4 border-0 rounded-3 bg-white">
+                <h3 class="fw-bold text-dark mb-3">Captura de Rostro Maestro</h3>
+                <p class="text-muted small">Asegúrate de tener buena iluminación antes de activar la cámara.</p>
+                
+                <div id="cam-container" class="bg-light rounded-3 d-flex align-items-center justify-content-center mx-auto mb-4 border" style="width: 100%; max-width: 400px; height: 300px; position: relative; overflow: hidden;">
+                    <div class="scanner-line"></div>
+
+                    <video id="video" autoplay playsinline class="w-100 h-100 object-fit-cover d-none" style="transform: scaleX(-1);"></video>
+                    
+                    <div id="placeholder-cam" class="text-center">
+                        <i class="bi bi-camera-video text-secondary" style="font-size: 3rem;"></i>
+                        <p class="text-muted small mt-2">Cámara apagada</p>
+                    </div>
+                    <canvas id="canvas" class="d-none"></canvas>
+                </div>
+
+                <div id="mensaje-alerta" class="alert d-none small p-2 mb-3"></div>
+
+                <div class="d-grid gap-2">
+                    <button id="btn-entrenar" class="btn btn-dark fw-bold py-2">
+                        <i class="bi bi-person-bounding-box me-2"></i>Capturar y Configurar Rostro
+                    </button>
+                    <a href="{% url 'dashboard' %}" id="btn-volver" class="btn btn-outline-secondary py-2">Volver al Panel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const placeholder = document.getElementById('placeholder-cam');
+    const btnEntrenar = document.getElementById('btn-entrenar');
+    const alerta = document.getElementById('mensaje-alerta');
+    const camContainer = document.getElementById('cam-container');
+    const btnVolver = document.getElementById('btn-volver');
+    
+    let streamLocal = null; // Guardamos la referencia de transmisión de la cámara para apagarla limpiamente
+
+    // Activar la webcam automáticamente al cargar
+    navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 300 } })
+        .then(stream => {
+            streamLocal = stream; // Almacenar el stream activo
+            video.srcObject = stream;
+            video.classList.remove('d-none');
+            placeholder.classList.add('d-none');
+        })
+        .catch(err => {
+            console.error("Error al acceder a la cámara:", err);
+            mostrarAlerta('No se pudo acceder a la cámara web. Verifica los permisos.', 'alert-danger');
+        });
+
+    // Función para apagar de forma física la cámara web y liberar recursos en el navegador
+    function apagarCamara() {
+        if (streamLocal) {
+            streamLocal.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+    }
+
+    btnEntrenar.addEventListener('click', () => {
+        try {
+            const context = canvas.getContext('2d');
+            canvas.width = 400;
+            canvas.height = 300;
+            context.drawImage(video, 0, 0, 400, 300);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            
+            // --- EFECTO VISUAL: Activamos la línea de escaneo láser ---
+            camContainer.classList.add('scanning');
+            
+            btnEntrenar.disabled = true;
+            btnEntrenar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando Rostro...';
+
+            // Obtener el token de protección de Django de forma robusta
+            let csrfToken = "{{ csrf_token }}";
+            if (!csrfToken) {
+                csrfToken = document.cookie.split('; ')
+                    .find(row => row.startsWith('csrftoken='))
+                    ?.split('=')[1];
+            }
+
+            fetch("{% url 'registrar_rostro' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken
+                },
+                body: JSON.stringify({ imagen: dataUrl })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Error en la respuesta del servidor");
+                return res.json();
+            })
+            .then(data => {
+                // --- EFECTO VISUAL: Desactivamos el láser ---
+                camContainer.classList.remove('scanning');
+
+                if(data.success) {
+                    mostrarAlerta(data.message, 'alert-success');
+                    
+                    // APAGAMOS LA CÁMARA para evitar que la pestaña se quede colgada cargando
+                    apagarCamara(); 
+                    
+                    setTimeout(() => { window.location.href = "{% url 'dashboard' %}"; }, 1500);
+                } else {
+                    mostrarAlerta(data.message, 'alert-warning');
+                    restablecerBoton();
+                }
+            })
+            .catch(error => {
+                console.error("Error en fetch:", error);
+                camContainer.classList.remove('scanning');
+                mostrarAlerta('Error de conexión con el servidor.', 'alert-danger');
+                restablecerBoton();
+            });
+
+        } catch (e) {
+            console.error("Error al procesar el fotograma:", e);
+            camContainer.classList.remove('scanning');
+            mostrarAlerta('Error interno al capturar el rostro.', 'alert-danger');
+            restablecerBoton();
+        }
+    });
+
+    // Si el usuario vuelve sin registrarse, apagamos físicamente la cámara
+    btnVolver.addEventListener('click', () => {
+        apagarCamara();
+    });
+
+    function restablecerBoton() {
+        btnEntrenar.disabled = false;
+        btnEntrenar.innerHTML = '<i class="bi bi-person-bounding-box me-2"></i>Capturar y Configurar Rostro';
+    }
+
+    function mostrarAlerta(msg, clase) {
+        alerta.className = `alert ${clase} small p-2 mb-3`;
+        alerta.innerText = msg;
+        alerta.classList.remove('d-none');
+    }
+</script>
+{% endblock %}

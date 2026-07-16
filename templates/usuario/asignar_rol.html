@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Asignar Rol{% endblock %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-primary text-white">
+            <h4>Asignar Rol</h4>
+        </div>
+
+        <div class="card-body">
+
+            <h5>Usuario: <strong>{{ usuario.username }}</strong></h5>
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label">Rol</label>
+
+                    <select name="rol" class="form-select">
+
+                        <option value="Usuario">
+                            Usuario
+                        </option>
+
+                        <option value="Administrador">
+                            Administrador
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <button class="btn btn-success">
+                    Guardar
+                </button>
+
+                <a href="{% url 'lista_usuarios' %}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

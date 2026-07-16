@@ -1,0 +1,68 @@
+
+{% extends 'base.html' %}
+{% block title %}Categorías - Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1" style="color: #002D62;">Categorías de Equipos</h2>
+            <p class="text-secondary mb-0">Gestiona las clasificaciones del laboratorio</p>
+        </div>
+        <div>
+            <a href="{% url 'crear_categoria' %}" class="btn btn-primary rounded-3 px-4 shadow-sm" style="background-color: #002D62; border: none;">
+                <i class="bi bi-plus-circle"></i> Nueva Categoría
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow border-0 rounded-4">
+        <div class="card-body p-4">
+            <div class="table-responsive">
+                <table class="table align-middle table-hover text-center">
+                    <thead style="background-color: #002D62;">
+                        <tr>
+                            <th class="py-3 text-white rounded-start">Nombre</th>
+                            <th class="py-3 text-white">Descripción</th>
+                            <th class="py-3 text-white">Equipos Registrados</th>
+                            <th class="py-3 text-white rounded-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for categoria in categorias %}
+                        <tr>
+                            <td class="fw-semibold text-dark">{{ categoria.nombre }}</td>
+                            <td class="text-secondary">{{ categoria.descripcion|default:"Sin descripción" }}</td>
+                            <td>
+                                <span class="badge px-3 py-2 rounded-pill" style="background-color: rgba(242, 169, 0, 0.2); color: #b07d00;">
+                                    {{ categoria.equipos.count }} equipos
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-inline-flex gap-2">
+                                    <a href="{% url 'editar_categoria' categoria.id %}"
+                                        class="btn btn-sm btn-light text-primary border p-1 rounded-2 shadow-sm" title="Editar">
+                                        <i class="bi bi-pencil-square px-1"></i>
+                                    </a>
+                                    <a href="{% url 'eliminar_categoria' categoria.id %}"
+                                        class="btn btn-sm btn-light text-danger border p-1 rounded-2 shadow-sm" title="Eliminar">
+                                        <i class="bi bi-trash3 px-1"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-secondary">
+                                <i class="bi bi-tags fs-1 d-block mb-3" style="color: #002D62;"></i>
+                                No hay categorías creadas todavía.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

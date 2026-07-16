@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h2 class="fw-bold mb-1">Usuarios del Sistema</h2>
+            <p class="text-secondary mb-0">
+                Administración de usuarios registrados
+            </p>
+        </div>
+
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-4">
+
+        <div class="card-body">
+
+            <div class="table-responsive">
+
+                <table class="table table-hover align-middle">
+
+                    <thead class="table-light">
+
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Nombre Completo</th>
+                            <th>Correo Electrónico</th>
+                            <th>Estado</th>
+                            <th>Rol</th>
+                            <th>Acciones</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% for usuario in usuarios %}
+
+                        <tr>
+
+                            <td>
+                                <i class="bi bi-person-circle text-success me-2"></i>
+                                {{ usuario.username }}
+                            </td>
+
+                            <td>
+                                {{ usuario.first_name }} {{ usuario.last_name }}
+                            </td>
+
+                            <td>
+                                {{ usuario.email }}
+                            </td>
+
+                            <td>
+
+                                {% if usuario.is_active %}
+
+                                    <span class="badge bg-success">
+                                        Activo
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="badge bg-danger">
+                                        Inactivo
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+
+                                {% if usuario.groups.first %}
+
+                                    {% if usuario.groups.first.name == "Administrador" %}
+
+                                        <span class="badge bg-danger">
+                                            👑 Administrador
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="badge bg-success">
+                                            👤 Usuario
+                                        </span>
+
+                                    {% endif %}
+
+                                {% else %}
+
+                                    <span class="badge bg-warning text-dark">
+                                        ⏳ Pendiente de aprobación
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                            <td>
+
+                                {% if usuario.groups.first %}
+
+                                    <a href="{% url 'asignar_rol' usuario.id %}"
+                                       class="btn btn-warning btn-sm">
+                                        Cambiar Rol
+                                    </a>
+
+                                {% else %}
+
+                                    <a href="{% url 'asignar_rol' usuario.id %}"
+                                       class="btn btn-success btn-sm">
+                                        Aprobar Usuario
+                                    </a>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td colspan="6" class="text-center py-5 text-secondary">
+
+                                <i class="bi bi-people fs-1"></i>
+
+                                <br><br>
+
+                                No existen usuarios registrados.
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>Registrar Devolución</h2>
+
+<form method="post" class="card p-4 shadow-sm">
+
+    {% csrf_token %}
+
+    {{ form.as_p }}
+
+    <button class="btn btn-success">
+        Registrar devolución
+    </button>
+
+    <a href="{% url 'lista_prestamos' %}" class="btn btn-secondary">
+        Cancelar
+    </a>
+
+</form>
+
+{% endblock %}

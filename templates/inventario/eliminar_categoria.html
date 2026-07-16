@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Eliminar Categoría{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3 d-flex justify-content-center">
+    <div class="card border-0 shadow-sm rounded-4 w-100" style="max-width: 500px;">
+        <div class="card-body p-5 text-center">
+            
+            <div class="mb-4">
+                <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 4rem;"></i>
+            </div>
+            
+            <h4 class="fw-bold mb-3">¿Eliminar Categoría?</h4>
+            <p class="text-secondary mb-1">Estás a punto de eliminar la categoría <strong>"{{ categoria.nombre }}"</strong>.</p>
+            
+            {% if categoria.equipos.count > 0 %}
+            <div class="alert alert-danger mt-3 text-start rounded-3" role="alert">
+                <i class="bi bi-shield-x me-2"></i> <strong>¡ADVERTENCIA CRÍTICA!</strong><br>
+                Esta categoría tiene <strong>{{ categoria.equipos.count }} equipo(s)</strong> registrado(s). Si la eliminas, <u>también se borrarán permanentemente todos esos equipos del sistema.</u>
+            </div>
+            {% else %}
+            <p class="text-secondary mt-3">Esta categoría no tiene equipos asociados, es seguro eliminarla.</p>
+            {% endif %}
+
+            <form method="POST" class="mt-4 d-flex justify-content-center gap-3">
+                {% csrf_token %}
+                <a href="{% url 'lista_categorias' %}" class="btn btn-light border shadow-sm px-4 py-2">Cancelar</a>
+                <button type="submit" class="btn btn-danger shadow-sm px-4 py-2 fw-medium">
+                    Sí, Eliminar Definitivamente
+                </button>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
