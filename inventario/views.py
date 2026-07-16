@@ -3,7 +3,10 @@ import cv2
 import json
 import numpy as np
 import base64
-import face_recognition
+try:
+    import face_recognition
+except ImportError:
+    face_recognition = None
 
 from django.conf import settings
 from django.contrib import messages
