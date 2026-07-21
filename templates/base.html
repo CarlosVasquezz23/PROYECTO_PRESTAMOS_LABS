@@ -9,8 +9,7 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
 
@@ -138,7 +137,7 @@
                         <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                             <i class="bi bi-speedometer2"></i> Dashboard
                         </a>
-                    </li>
+                    </li >
 
                     {% for grupo in request.user.groups.all %}
                         {% if grupo.name == "Administrador" %}
@@ -174,23 +173,23 @@
                                 </div>
                             </li>
                             <li class="nav-item">
-                                <a href="{% url 'prestamo:lista_prestamos' %}" class="nav-link {% if request.resolver_match.url_name == 'lista_prestamos' %}active{% endif %}">
+                                <a href="/prestamos/" class="nav-link {% if request.resolver_match.url_name == 'lista_prestamos' %}active{% endif %}">
                                     <i class="bi bi-clipboard-check"></i> Préstamos
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="{% url 'dashboard_admin' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard_admin' %}active{% endif %}">
+                                <a href="{% url 'lista_usuarios' %}" class="nav-link {% if request.resolver_match.url_name == 'lista_usuarios' or request.resolver_match.url_name == 'asignar_rol' %}active{% endif %}">
                                     <i class="bi bi-people"></i> Usuarios
                                 </a>
                             </li>
                         {% elif grupo.name == "Usuario" %}
                             <li class="nav-item">
-                                <a href="{% url 'prestamo:crear_prestamo' %}" class="nav-link {% if request.resolver_match.url_name == 'crear_prestamo' %}active{% endif %}">
+                                <a href="/prestamos/nuevo/" class="nav-link {% if request.resolver_match.url_name == 'crear_prestamo' %}active{% endif %}">
                                     <i class="bi bi-plus-circle"></i> Solicitar Préstamo
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="{% url 'prestamo:mis_prestamos' %}" class="nav-link {% if request.resolver_match.url_name == 'mis_prestamos' %}active{% endif %}">
+                                <a href="/prestamos/mis-prestamos/" class="nav-link {% if request.resolver_match.url_name == 'mis_prestamos' %}active{% endif %}">
                                     <i class="bi bi-clock-history"></i> Mis Préstamos
                                 </a>
                             </li>
@@ -317,9 +316,30 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            // ========================================================
+            // 0. CONTROL GLOBAL Y AUTO-CIERRE DE ALERTAS EN CAJITAS
+            // ========================================================
+            const alertasCajitas = document.querySelectorAll('.alert, [role="alert"], .messages, .mensaje-alerta');
+            alertasCajitas.forEach(function(alerta) {
+                // Si la alerta contiene texto de "cerrar sesión" y el usuario está activo, se borra de inmediato para evitar duplicados molestos
+                if (alerta.innerText.toLowerCase().includes("cerrado") || alerta.innerText.toLowerCase().includes("sesión")) {
+                    alerta.remove();
+                } else {
+                    // Si es cualquier otro mensaje, le damos un temporizador de desvanecimiento automático
+                    setTimeout(function() {
+                        alerta.style.transition = "opacity 0.5s ease";
+                        alerta.style.opacity = "0";
+                        setTimeout(function() {
+                            alerta.remove();
+                        }, 500);
+                    }, 4000);
+                }
+            });
+
             // 1. Lógica del menú lateral (Sidebar)
             const btnToggle = document.getElementById("btn-toggle-sidebar");
             const sidebar = document.getElementById("sidebar");
@@ -330,13 +350,11 @@
                 });
             }
 
-            // 2. Lógica dinámica de carga de notificaciones (Evita el "Cargando alertas..." infinito)
+            // 2. Lógica dinámica de carga de notificaciones
             const notifItems = document.getElementById("notif-items");
             const notifCount = document.getElementById("notif-count");
 
             function cargarNotificaciones() {
-                // Intentamos buscar una API de alertas. Si no la tienes configurada aún,
-                // caerá en el "catch" y mostrará un mensaje limpio en lugar del "Cargando..." eterno.
                 fetch('/api/alertas/')
                     .then(response => {
                         if (!response.ok) throw new Error("Sin API activa");
@@ -368,7 +386,6 @@
                         }
                     })
                     .catch(() => {
-                        // Respuesta por defecto segura en caso de que no exista endpoint de alertas en tu Django
                         mostrarAlertaVacia();
                     });
             }
@@ -384,8 +401,49 @@
                 notifCount.textContent = "0";
             }
 
-            // Ejecutar la carga al iniciar
             cargarNotificaciones();
+
+            // 3. PROCESAMIENTO DE MENSAJES DJANGO MEDIANTE TOASTS (SWEETALERT2)
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+
+            {% if messages %}
+                {% for message in messages %}
+                    (function() {
+                        const msgText = "{{ message|escapejs }}";
+                        const msgTags = "{{ message.tags }}";
+                        
+                        // Si el mensaje dice "cerrado sesión" pero ya entramos, evitamos disparar el SweetAlert repetido
+                        if (msgText.toLowerCase().includes("cerrado correctamente")) {
+                            return; 
+                        }
+
+                        let icono = 'info';
+
+                        if (msgTags.includes('success')) {
+                            icono = 'success';
+                        } else if (msgTags.includes('error') || msgTags.includes('danger')) {
+                            icono = 'error';
+                        } else if (msgTags.includes('warning')) {
+                            icono = 'warning';
+                        }
+
+                        Toast.fire({
+                            icon: icono,
+                            title: msgText
+                        });
+                    })();
+                {% endfor %}
+            {% endif %}
         });
     </script>
 </body>

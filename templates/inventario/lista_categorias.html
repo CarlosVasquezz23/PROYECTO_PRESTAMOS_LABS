@@ -1,52 +1,153 @@
-
 {% extends 'base.html' %}
 {% block title %}Categorías - Inventario{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<!-- ESTILOS EXCLUSIVOS PARA LA TABLA DE CATEGORÍAS -->
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-view {
+        animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Estilización del Encabezado de la Tabla */
+    .table-custom {
+        overflow: hidden;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-custom thead {
+        background-color: #002D62 !important;
+    }
+
+    .table-custom thead th {
+        background-color: #002D62 !important;
+        color: #ffffff !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        border: none;
+        padding: 16px 12px;
+    }
+
+    /* Filas interactivas */
+    .table-custom tbody tr {
+        transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .table-custom tbody tr:hover {
+        background-color: rgba(0, 45, 98, 0.02) !important;
+    }
+
+    /* Badges de conteo estilizados con el color secundario de la UNEMI */
+    .badge-qty {
+        background-color: rgba(242, 169, 0, 0.12) !important;
+        color: #b37d00 !important;
+        font-weight: 600;
+        border: 1px solid rgba(242, 169, 0, 0.25);
+    }
+
+    /* Botones de acción dinámicos */
+    .btn-action-edit {
+        color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.08);
+        border: 1px solid rgba(13, 110, 253, 0.15);
+        transition: all 0.2s ease;
+    }
+    .btn-action-edit:hover {
+        color: #ffffff;
+        background-color: #0d6efd;
+        transform: translateY(-1px);
+    }
+
+    .btn-action-delete {
+        color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.08);
+        border: 1px solid rgba(220, 53, 69, 0.15);
+        transition: all 0.2s ease;
+    }
+    .btn-action-delete:hover {
+        color: #ffffff;
+        background-color: #dc3545;
+        transform: translateY(-1px);
+    }
+
+    /* Botón de creación con hover reactivo */
+    .btn-create {
+        background-color: #002D62;
+        border: none;
+        transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+    .btn-create:hover {
+        background-color: #001f42;
+        transform: translateY(-1px);
+    }
+</style>
+
+<div class="container-fluid mt-4 animate-view">
+    <!-- CABECERA DE LA VISTA -->
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
         <div>
             <h2 class="fw-bold mb-1" style="color: #002D62;">Categorías de Equipos</h2>
             <p class="text-secondary mb-0">Gestiona las clasificaciones del laboratorio</p>
         </div>
         <div>
-            <a href="{% url 'crear_categoria' %}" class="btn btn-primary rounded-3 px-4 shadow-sm" style="background-color: #002D62; border: none;">
-                <i class="bi bi-plus-circle"></i> Nueva Categoría
+            <a href="{% url 'crear_categoria' %}" class="btn btn-create text-white rounded-3 px-4 py-2.5 fw-semibold shadow-sm d-inline-flex align-items-center gap-2">
+                <i class="bi bi-plus-circle-fill"></i> Nueva Categoría
             </a>
         </div>
     </div>
 
-    <div class="card shadow border-0 rounded-4">
-        <div class="card-body p-4">
-            <div class="table-responsive">
-                <table class="table align-middle table-hover text-center">
-                    <thead style="background-color: #002D62;">
+    <!-- TARJETA CONTENEDORA DE LA TABLA -->
+    <div class="card shadow-sm border-0 rounded-4 bg-white">
+        <div class="card-body p-0"> <!-- Removido padding para que el contenedor abrace la tabla perfectamente -->
+            <div class="table-responsive rounded-4">
+                <table class="table table-custom align-middle text-center m-0">
+                    <thead>
                         <tr>
-                            <th class="py-3 text-white rounded-start">Nombre</th>
-                            <th class="py-3 text-white">Descripción</th>
-                            <th class="py-3 text-white">Equipos Registrados</th>
-                            <th class="py-3 text-white rounded-end">Acciones</th>
+                            <th scope="col" class="text-start ps-4">Nombre</th>
+                            <th scope="col">Descripción</th>
+                            <th scope="col">Equipos Registrados</th>
+                            <th scope="col" class="pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for categoria in categorias %}
                         <tr>
-                            <td class="fw-semibold text-dark">{{ categoria.nombre }}</td>
-                            <td class="text-secondary">{{ categoria.descripcion|default:"Sin descripción" }}</td>
-                            <td>
-                                <span class="badge px-3 py-2 rounded-pill" style="background-color: rgba(242, 169, 0, 0.2); color: #b07d00;">
-                                    {{ categoria.equipos.count }} equipos
+                            <!-- Nombre alineado a la izquierda para mejor legibilidad de textos -->
+                            <td class="fw-bold text-dark text-start ps-4 py-3">{{ categoria.nombre }}</td>
+                            <td class="text-secondary py-3">
+                                {% if categoria.descripcion %}
+                                    {{ categoria.descripcion }}
+                                {% else %}
+                                    <span class="text-muted italic opacity-50 small">Sin descripción</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3">
+                                <span class="badge badge-qty px-3 py-2 rounded-pill">
+                                    <i class="bi bi-cpu me-1"></i> {{ categoria.equipos.count }} equipos
                                 </span>
                             </td>
-                            <td>
+                            <td class="pe-4 py-3">
                                 <div class="d-inline-flex gap-2">
                                     <a href="{% url 'editar_categoria' categoria.id %}"
-                                        class="btn btn-sm btn-light text-primary border p-1 rounded-2 shadow-sm" title="Editar">
-                                        <i class="bi bi-pencil-square px-1"></i>
+                                       class="btn btn-sm btn-action-edit p-2 rounded-3" title="Editar">
+                                        <i class="bi bi-pencil-square d-block"></i>
                                     </a>
                                     <a href="{% url 'eliminar_categoria' categoria.id %}"
-                                        class="btn btn-sm btn-light text-danger border p-1 rounded-2 shadow-sm" title="Eliminar">
-                                        <i class="bi bi-trash3 px-1"></i>
+                                       class="btn btn-sm btn-action-delete p-2 rounded-3" title="Eliminar">
+                                        <i class="bi bi-trash3 d-block"></i>
                                     </a>
                                 </div>
                             </td>
@@ -54,8 +155,11 @@
                         {% empty %}
                         <tr>
                             <td colspan="4" class="text-center py-5 text-secondary">
-                                <i class="bi bi-tags fs-1 d-block mb-3" style="color: #002D62;"></i>
-                                No hay categorías creadas todavía.
+                                <div class="py-4">
+                                    <i class="bi bi-tags fs-1 d-block mb-3 opacity-25" style="color: #002D62;"></i>
+                                    <p class="fw-semibold text-muted m-0">No hay categorías creadas todavía.</p>
+                                    <span class="text-secondary small">Haz clic en "Nueva Categoría" para añadir la primera clasificación.</span>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

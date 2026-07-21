@@ -2,42 +2,102 @@
 {% block title %}Nueva Categoría{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-3 d-flex justify-content-center">
-    <div class="card border-0 shadow-sm rounded-4 w-100" style="max-width: 600px;">
-        <div class="card-header text-white rounded-top-4 py-3" style="background-color: #002D62;">
-            <h5 class="mb-0 fw-bold"><i class="bi bi-tag-fill me-2"></i>Registrar Nueva Categoría</h5>
+<!-- ESTILOS EXCLUSIVOS PARA EL FORMULARIO DE CATEGORÍAS -->
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-form {
+        animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Estilo premium para los campos de texto */
+    .custom-input:focus {
+        border-color: #002D62 !important;
+        box-shadow: 0 0 0 0.25rem rgba(0, 45, 98, 0.15) !important;
+    }
+
+    .btn-save {
+        background-color: #F2A900;
+        border: none;
+        color: white;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-save:hover {
+        background-color: #d49400;
+        color: white;
+        transform: translateY(-1px);
+    }
+
+    .btn-cancel {
+        transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-cancel:hover {
+        background-color: #f1f3f5;
+        transform: translateY(-1px);
+    }
+</style>
+
+<div class="container-fluid mt-5 d-flex justify-content-center animate-form">
+    <div class="card border-0 shadow rounded-4 w-100" style="max-width: 600px; background: #ffffff;">
+        <!-- Cabecera con el Azul Institucional -->
+        <div class="card-header text-white rounded-top-4 py-3" style="background-color: #002D62; border: none;">
+            <h5 class="mb-0 fw-bold d-flex align-items-center">
+                <i class="bi bi-tag-fill me-2 fs-5"></i> Registrar Nueva Categoría
+            </h5>
         </div>
-        <div class="card-body p-4">
+        
+        <div class="card-body p-4 p-md-5">
             <form method="POST">
                 {% csrf_token %}
                 
-                <div class="mb-3">
-                    <label for="nombre" class="form-label fw-semibold text-secondary">Nombre de la Categoría</label>
-                    <input 
-                        type="text" 
-                        name="nombre" 
-                        id="nombre" 
-                        required 
-                        class="form-control" 
-                        placeholder="Ej. Equipos de Cómputo, Reactivos..."
-                    >
+                <!-- Campo Nombre -->
+                <div class="mb-4">
+                    <label for="nombre" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Nombre de la Categoría</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-bookmark-plus"></i></span>
+                        <input 
+                            type="text" 
+                            name="nombre" 
+                            id="nombre" 
+                            required 
+                            class="form-control custom-input py-2.5 border-start-0 bg-light bg-opacity-50" 
+                            placeholder="Ej. Equipos de Cómputo, Reactivos..."
+                        >
+                    </div>
                 </div>
                 
+                <!-- Campo Descripción -->
                 <div class="mb-4">
-                    <label for="descripcion" class="form-label fw-semibold text-secondary">Descripción (Opcional)</label>
+                    <label for="descripcion" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Descripción (Opcional)</label>
                     <textarea 
                         name="descripcion" 
                         id="descripcion" 
-                        rows="3" 
-                        class="form-control" 
-                        placeholder="Agrega una breve descripción sobre esta categoría..."
+                        rows="4" 
+                        class="form-control custom-input py-2.5 bg-light bg-opacity-50" 
+                        placeholder="Agrega una breve descripción detallando qué tipos de equipos o insumos pertenecerán a esta categoría..."
                     ></textarea>
                 </div>
                 
+                <hr class="text-muted opacity-25 my-4">
+                
+                <!-- Botones de Acción Estilizados -->
                 <div class="d-flex justify-content-end gap-2">
-                    <a href="{% url 'lista_categorias' %}" class="btn btn-light border shadow-sm px-4">Cancelar</a>
-                    <button type="submit" class="btn text-white shadow-sm px-4" style="background-color: #F2A900; border: none;">
-                        Guardar Categoría
+                    <a href="{% url 'lista_categorias' %}" class="btn btn-light border btn-cancel shadow-sm px-4 py-2 fw-semibold rounded-3 text-secondary d-flex align-items-center gap-2">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-save shadow-sm px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-check-circle"></i> Guardar Categoría
                     </button>
                 </div>
             </form>

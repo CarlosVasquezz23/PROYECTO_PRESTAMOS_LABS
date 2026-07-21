@@ -1,11 +1,11 @@
+# backend/inventario/urls.py
 from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Dashboard & Estadísticas
-    path('dashboard/', views.dashboard, name='dashboard'),
-    path('dashboard/admin/', views.dashboard_admin, name='dashboard_admin'),
-    path('dashboard/user/', views.dashboard_user, name='dashboard_user'),
+    # 🌟 ELIMINAMOS LA INTERFERENCIA:
+    # Quitamos cualquier ruta que use 'dashboard/user/' a secas para que config/urls.py haga su trabajo.
+    path('dashboard/user/historial/', views.historial_completo_user, name='historial_completo_user'),
     path('api/estadisticas/', views.api_estadisticas_dashboard, name='api_estadisticas'),
     path('logout/', views.logout_usuario, name='logout'),
 
@@ -24,9 +24,7 @@ urlpatterns = [
     # Reportes
     path("reporte/equipos/pdf/", views.reporte_equipos_pdf, name="reporte_equipos_pdf"),
     
-    # Registro de rostros (HTML y API en la misma función)
+    # Registro de rostros y API facial
     path('registrar-rostro/', views.registrar_rostro, name='registrar_rostro'),
-    
-    # API del login que procesa los datos que envía la cámara
     path('api/login-facial/', views.login_facial, name='login_facial'),
 ]

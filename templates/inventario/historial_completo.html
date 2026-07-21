@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Mi Historial Completo - UNEMI{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow p-5 border-0 rounded-3 bg-white">
+                
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="fw-bold text-dark m-0">
+                        <i class="bi bi-journal-text text-success me-2"></i>Historial Completo de Préstamos
+                    </h3>
+                    <a href="{% url 'dashboard_user' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="bi bi-arrow-left me-1"></i> Volver al Panel
+                    </a>
+                </div>
+                
+                <p class="text-muted">A continuación se listan de forma cronológica todos los equipos de laboratorio que has solicitado desde la creación de tu cuenta.</p>
+
+                <div class="table-responsive rounded-3 shadow-sm mt-4">
+                    <table class="table table-striped table-hover align-middle m-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col">Equipo</th>
+                                <th scope="col">Marca / Modelo</th>
+                                <th scope="col">Ubicación</th>
+                                <th scope="col">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prestamo in prestamos %}
+                            <tr>
+                                <td class="fw-semibold text-start">{{ prestamo.equipo.nombre }}</td>
+                                <td>{{ prestamo.equipo.marca }} {{ prestamo.equipo.modelo }}</td>
+                                <td><span class="badge bg-secondary">{{ prestamo.equipo.ubicacion }}</span></td>
+                                <td>
+                                    {% if prestamo.devuelto %}
+                                        <span class="badge bg-success px-3 py-2">Devuelto</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark px-3 py-2">Activo</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-muted py-4 text-center">
+                                    <i class="bi bi-info-circle"></i> No cuentas con registros en tu historial.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

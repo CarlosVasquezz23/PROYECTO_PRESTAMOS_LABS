@@ -24,22 +24,29 @@
 
         <form method="get" action="{% url 'prestamo:lista_prestamos' %}" class="row g-2 mb-4" id="form-filtros">
             <div class="col-12 col-md-7">
-                <div class="position-relative">
-                    <i class="bi bi-search text-muted position-absolute top-50 start-0 translate-middle-y ms-3" style="font-size: 0.9rem;"></i>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-0 text-secondary pe-2">
+                        <i class="bi bi-search"></i>
+                    </span>
                     <input 
                         type="text" 
                         id="input-buscar"
                         name="buscar" 
-                        class="form-control py-2 ps-5 pe-3 rounded-3 shadow-none text-secondary bg-light" 
+                        class="form-control py-2 ps-2 pe-3 rounded-end-3 shadow-none text-secondary bg-light border-0" 
                         style="font-size: 0.88rem;" 
                         placeholder="Buscar por usuario (nombre) o código del equipo..." 
                         value="{{ buscar }}"
                     >
+                    {% if buscar %}
+                        <a href="{% url 'prestamo:lista_prestamos' %}" class="btn btn-outline-secondary border-0 bg-light text-muted d-flex align-items-center" title="Limpiar filtro">
+                            <i class="bi bi-x-circle-fill"></i>
+                        </a>
+                    {% endif %}
                 </div>
             </div>
             
             <div class="col-12 col-sm-8 col-md-3">
-                <select id="select-estado" name="estado" class="form-select py-2 rounded-3 shadow-none text-secondary bg-light" style="font-size: 0.88rem;">
+                <select id="select-estado" name="estado" class="form-select py-2 rounded-3 shadow-none text-secondary bg-light border-0" style="font-size: 0.88rem;">
                     <option value="" {% if not estado %}selected{% endif %}>Todos los préstamos</option>
                     <option value="Activo" {% if estado == "Activo" %}selected{% endif %}>Solo Pendientes (Activos)</option>
                     <option value="Devuelto" {% if estado == "Devuelto" %}selected{% endif %}>Historial (Devueltos)</option>
@@ -76,20 +83,22 @@
                             <small class="text-muted">{{ prestamo.equipo.nombre }}</small>
                         </td>
                         <td class="px-3">{{ prestamo.fecha_prestamo|date:"d/m/Y H:i" }}</td>
-                        <td class="px-3">
+                        
+                        <td class="px-3 columna-estado">
                             {% if prestamo.estado == "Activo" %}
                                 <span class="badge rounded-pill px-3 py-2 fw-medium shadow-sm" style="background-color: rgba(242, 169, 0, 0.15); color: #b07d00; font-size: 0.75rem;">
-                                    ● Activo / Pendiente
+                                    ●&nbsp; Activo / Pendiente
                                 </span>
                             {% else %}
                                 <span class="badge rounded-pill px-3 py-2 fw-medium shadow-sm" style="background-color: #e6f4ea; color: #137333; font-size: 0.75rem;">
-                                    ● Devuelto
+                                    ●&nbsp; Devuelto
                                 </span>
                             {% endif %}
                         </td>
-                        <td class="px-3 text-center">
+
+                        <td class="px-3 text-center contenedor-accion">
                             {% if prestamo.estado == "Activo" %}
-                                <form method="POST" action="{% url 'prestamo:procesar_devolucion' prestamo.id %}" onsubmit="return confirm('¿Confirmas que el equipo {{ prestamo.equipo.codigo }} ha sido devuelto en buenas condiciones?');">
+                                <form method="POST" action="{% url 'prestamo:procesar_devolucion' prestamo.id %}" onsubmit="devolverEquipo(event, this);">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-sm text-white px-3 py-1 rounded-pill shadow-sm" style="background-color: #198754; font-weight: 500;">
                                         <i class="bi bi-box-arrow-in-down"></i> Recibir
@@ -115,30 +124,38 @@
     </div>
 </div>
 
+<!-- Añadimos el script de SweetAlert2 por si no lo tienes en tu base.html -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
     function actualizarTablaEnTiempoReal() {
-        // Detectar si el usuario está escribiendo o interactuando con los campos para pausar la recarga asíncrona
         const inputBuscar = document.getElementById('input-buscar');
         const selectEstado = document.getElementById('select-estado');
 
+        // Si el usuario está escribiendo activamente, no interrumpimos su flujo
         if (document.activeElement === inputBuscar) {
-            // Si el cursor está dentro del buscador, no refrescamos para no interrumpir al usuario
             return;
         }
 
-        const urlConFiltros = window.location.pathname + window.location.search;
+        const queryParams = new URLSearchParams();
+        if (inputBuscar && inputBuscar.value.trim() !== "") {
+            queryParams.append('buscar', inputBuscar.value);
+        }
+        if (selectEstado && selectEstado.value !== "") {
+            queryParams.append('estado', selectEstado.value);
+        }
+
+        const urlConFiltros = window.location.pathname + '?' + queryParams.toString();
 
         fetch(urlConFiltros)
             .then(response => response.text())
             .then(html => {
                 let parser = new DOMParser();
                 let documentoTemporal = parser.parseFromString(html, 'text/html');
-
                 let nuevoBodyElement = documentoTemporal.getElementById('tabla-prestamos-body');
                 
                 if (nuevoBodyElement) {
-                    let nuevoBody = nuevoBodyElement.innerHTML;
-                    document.getElementById('tabla-prestamos-body').innerHTML = nuevoBody;
+                    document.getElementById('tabla-prestamos-body').innerHTML = nuevoBodyElement.innerHTML;
                 }
             })
             .catch(error => console.error("Error actualizando la tabla:", error));
@@ -146,5 +163,59 @@
 
     // Ejecuta la actualización automática cada 4 segundos
     setInterval(actualizarTablaEnTiempoReal, 4000);
+
+    function devolverEquipo(event, formElement) {
+        event.preventDefault(); 
+
+        const url = formElement.action;
+        const formData = new FormData(formElement);
+        const boton = formElement.querySelector('button[type="submit"]');
+
+        boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        boton.disabled = true;
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => {
+            if (response.ok) {
+                // Actualizamos visualmente la fila sin recargar toda la página
+                const fila = formElement.closest('tr');
+                fila.querySelector('.contenedor-accion').innerHTML = '<span class="text-muted small"><i class="bi bi-check2-all"></i> Finalizado</span>';
+                
+                const tdEstado = fila.querySelector('.columna-estado'); 
+                if(tdEstado) {
+                    tdEstado.innerHTML = `<span class="badge rounded-pill px-3 py-2 fw-medium shadow-sm" style="background-color: #e6f4ea; color: #137333; font-size: 0.75rem;">
+                                            ●&nbsp; Devuelto
+                                          </span>`;
+                }
+
+                // Disparamos la notificación de SweetAlert2
+                Swal.fire({
+                    title: '¡Completado!',
+                    text: 'El equipo ha sido marcado como devuelto correctamente.',
+                    icon: 'success',
+                    confirmButtonColor: '#002D62', // Azul UNEMI
+                    confirmButtonText: 'Excelente'
+                });
+
+            } else {
+                throw new Error("Ocurrió un error en el servidor.");
+            }
+        })
+        .catch(error => {
+            console.error('Error de red:', error);
+            Swal.fire({
+                title: 'Oops...',
+                text: 'Hubo un error al procesar la devolución.',
+                icon: 'error',
+                confirmButtonColor: '#dc3545',
+            });
+            boton.innerHTML = '<i class="bi bi-box-arrow-in-down"></i> Recibir';
+            boton.disabled = false;
+        });
+    }
 </script>
 {% endblock %}

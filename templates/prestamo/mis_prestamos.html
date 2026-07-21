@@ -3,60 +3,151 @@
 {% block title %}Mis Préstamos - UNEMI{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<!-- ESTILOS EXCLUSIVOS INTERFAZ HISTORIAL PREMIUM -->
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-history {
+        animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Rediseño minimalista y limpio de la tabla */
+    .custom-table-premium {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .custom-table-premium thead th {
+        font-size: 0.85rem;
+        text-uppercase: true;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        color: #5c677d !important;
+        background-color: #f8f9fa !important;
+        border-bottom: 2px solid #edeff2 !important;
+        padding-top: 16px;
+        padding-bottom: 16px;
+    }
+
+    .custom-table-premium tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    .custom-table-premium tbody tr:hover {
+        background-color: rgba(248, 249, 250, 0.85) !important;
+    }
+
+    .custom-table-premium tbody td {
+        padding-top: 16px;
+        padding-bottom: 16px;
+        color: #2d3748;
+        border-bottom: 1px solid #f1f3f5;
+    }
+
+    /* Badges con tonalidades suaves y profesionales (UI Moderna) */
+    .badge-soft-custom-success {
+        background-color: #e6f4ea !important;
+        color: #137333 !important;
+        font-weight: 600;
+        border: 1px solid rgba(19, 115, 51, 0.15);
+    }
+
+    .badge-soft-custom-primary {
+        background-color: #e8f0fe !important;
+        color: #1a73e8 !important;
+        font-weight: 600;
+        border: 1px solid rgba(26, 115, 232, 0.15);
+    }
+
+    .badge-soft-custom-secondary {
+        background-color: #f1f3f4 !important;
+        color: #5f6368 !important;
+        font-weight: 600;
+        border: 1px solid rgba(95, 99, 104, 0.15);
+    }
+
+    /* Botón Nueva Solicitud con Look Corporativo Dark */
+    .btn-dark-unemi {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        border: none;
+        transition: all 0.2s ease;
+    }
+    .btn-dark-unemi:hover {
+        background-color: #0f172a !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+    }
+</style>
+
+<div class="container-fluid mt-4 px-md-4 animate-history">
+    <!-- ENCABEZADO PRINCIPAL -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4 text-start">
         <div>
-            <h2 class="fw-bold mb-1 text-unemi">Mi Historial de Préstamos</h2>
-            <p class="text-secondary mb-0">Equipos de laboratorio que has solicitado</p>
+            <h3 class="fw-bold mb-1 text-dark">Mi Historial de Préstamos</h3>
+            <p class="text-muted small mb-0">Consulta y gestiona los equipos tecnológicos solicitados para tus prácticas.</p>
         </div>
         <div>
-            <a href="{% url 'prestamo:crear_prestamo' %}" class="btn btn-primary rounded-3 px-4 shadow-sm" style="background-color: #002D62; border: none;">
-                <i class="bi bi-plus-circle"></i> Nueva Solicitud
+            <a href="{% url 'prestamo:crear_prestamo' %}" class="btn btn-dark-unemi rounded-pill px-4 py-2 small fw-bold d-inline-flex align-items-center gap-2 shadow-sm">
+                <i class="bi bi-plus-circle fs-6"></i> Nueva Solicitud
             </a>
         </div>
     </div>
 
-    <div class="card shadow border-0 rounded-4">
-        <div class="card-body p-4">
+    <!-- TARJETA CONTENEDORA DE LA TABLA -->
+    <div class="card shadow-sm border-0 rounded-3 bg-white overflow-hidden">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle table-hover text-center">
-                    <thead style="background-color: #002D62;">
+                <table class="table custom-table-premium align-middle m-0">
+                    <thead>
                         <tr>
-                            <th class="py-3 text-white rounded-start">Equipo</th>
-                            <th class="py-3 text-white">Fecha Préstamo</th>
-                            <th class="py-3 text-white">Fecha Límite</th>
-                            <th class="py-3 text-white">Tiempo Restante</th>
-                            <th class="py-3 text-white rounded-end">Estado</th>
+                            <th class="ps-4 text-start">Equipo</th>
+                            <th class="text-center">Fecha Préstamo</th>
+                            <th class="text-center">Fecha Límite</th>
+                            <th class="text-center">Tiempo Restante</th>
+                            <th class="pe-4 text-center">Estado</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for prestamo in prestamos %}
                         <tr>
-                            <td class="text-capitalize fw-semibold">{{ prestamo.equipo.nombre }}</td>
-                            <td>{{ prestamo.fecha_prestamo|date:"Y-m-d H:i" }}</td>
-                            <td>{{ prestamo.fecha_devolucion|date:"Y-m-d H:i"|default:"---" }}</td>
-                            <td>
-                                <span id="tiempo-restante-{{ prestamo.id }}" class="badge bg-{{ prestamo.alerta_clase|default:'secondary' }} px-3 py-2 rounded-pill">
+                            <!-- Nombre alineado a la izquierda para mejor lectura intuitiva -->
+                            <td class="text-capitalize fw-bold text-dark ps-4 text-start">
+                                <i class="bi bi-cpu text-secondary me-2 small"></i>{{ prestamo.equipo.nombre }}
+                            </td>
+                            <td class="text-center text-muted small">{{ prestamo.fecha_prestamo|date:"Y-m-d H:i" }}</td>
+                            <td class="text-center text-muted small">{{ prestamo.fecha_devolucion|date:"Y-m-d H:i"|default:"---" }}</td>
+                            <td class="text-center">
+                                <span id="tiempo-restante-{{ prestamo.id }}" class="badge bg-{{ prestamo.alerta_clase|default:'secondary' }} px-3 py-2 rounded-pill fw-semibold">
                                     {{ prestamo.tiempo_restante }}
                                 </span>
                             </td>
-                            <td>
-                                <span id="badge-estado-{{ prestamo.id }}">
+                            <td class="pe-4 text-center">
+                                <div id="badge-estado-{{ prestamo.id }}" class="d-inline-block">
                                     {% if prestamo.estado == "Activo" or prestamo.estado == "Active" %}
-                                        <span class="badge bg-success px-3 py-2 rounded-pill shadow-sm">Activo</span>
+                                        <span class="badge badge-soft-custom-success px-3 py-2 rounded-pill">Activo</span>
                                     {% elif prestamo.estado == "Devuelto" %}
-                                        <span class="badge bg-primary px-3 py-2 rounded-pill shadow-sm">Devuelto</span>
+                                        <span class="badge badge-soft-custom-primary px-3 py-2 rounded-pill">Devuelto</span>
                                     {% else %}
-                                        <span class="badge bg-secondary px-3 py-2 rounded-pill shadow-sm">{{ prestamo.estado }}</span>
+                                        <span class="badge badge-soft-custom-secondary px-3 py-2 rounded-pill">{{ prestamo.estado }}</span>
                                     {% endif %}
-                                </span>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-secondary">
-                                <i class="bi bi-inbox fs-1"></i><br><br>
-                                Aún no has solicitado ningún equipo de laboratorio.
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-2 text-opacity-25 d-block mb-3"></i>
+                                <span class="small fw-semibold">Aún no has solicitado ningún equipo de laboratorio.</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -67,9 +158,11 @@
     </div>
 </div>
 
+<!-- LIBRERÍA DE SWEETALERT2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
     function actualizarMisPrestamosEnTiempoReal() {
-        // Ejecuta la consulta de forma asíncrona usando la URL resuelta por Django bajo el namespace 'prestamo'
         fetch("{% url 'prestamo:api_mis_prestamos' %}")
             .then(response => response.json())
             .then(data => {
@@ -79,16 +172,16 @@
                     
                     if (contenedorBadge) {
                         if (prestamo.estado === 'Activo' || prestamo.estado === 'Active') {
-                            contenedorBadge.innerHTML = `<span class="badge bg-success px-3 py-2 rounded-pill shadow-sm">Activo</span>`;
+                            contenedorBadge.innerHTML = `<span class="badge badge-soft-custom-success px-3 py-2 rounded-pill">Activo</span>`;
                         } else if (prestamo.estado === 'Devuelto') {
-                            contenedorBadge.innerHTML = `<span class="badge bg-primary px-3 py-2 rounded-pill shadow-sm">Devuelto</span>`;
+                            contenedorBadge.innerHTML = `<span class="badge badge-soft-custom-primary px-3 py-2 rounded-pill">Devuelto</span>`;
                         } else {
-                            contenedorBadge.innerHTML = `<span class="badge bg-secondary px-3 py-2 rounded-pill shadow-sm">${prestamo.estado}</span>`;
+                            contenedorBadge.innerHTML = `<span class="badge badge-soft-custom-secondary px-3 py-2 rounded-pill">${prestamo.estado}</span>`;
                         }
                     }
 
                     if (contenedorTiempo) {
-                        contenedorTiempo.className = `badge bg-${prestamo.alerta_clase || 'secondary'} px-3 py-2 rounded-pill`;
+                        contenedorTiempo.className = `badge bg-${prestamo.alerta_clase || 'secondary'} px-3 py-2 rounded-pill fw-semibold`;
                         contenedorTiempo.textContent = prestamo.tiempo_restante;
                     }
                 });
@@ -96,10 +189,37 @@
             .catch(error => console.error("Error en AJAX:", error));
     }
 
-    // Ejecuta de inmediato al cargar la página y luego cada 3 segundos para refrescar tiempos de entrega
     document.addEventListener("DOMContentLoaded", function() {
+        // Ejecución de la lógica en tiempo real existente
         actualizarMisPrestamosEnTiempoReal();
         setInterval(actualizarMisPrestamosEnTiempoReal, 3000);
+
+        // DISPARADOR DE SWEETALERT2 PARA MENSAJES DEL BACKEND
+        {% if messages %}
+            {% for message in messages %}
+                let icono = "info";
+                let titulo = "Notificación";
+                
+                {% if message.tags == 'success' %}
+                    icono = "success";
+                    titulo = "¡Completado!";
+                {% elif message.tags == 'error' or message.tags == 'danger' %}
+                    icono = "error";
+                    titulo = "Error";
+                {% elif message.tags == 'warning' %}
+                    icono = "warning";
+                    titulo = "Advertencia";
+                {% endif %}
+
+                Swal.fire({
+                    icon: icono,
+                    title: titulo,
+                    text: "{{ message|escapejs }}",
+                    confirmButtonColor: "#1e293b",
+                    confirmButtonText: "Entendido"
+                });
+            {% endfor %}
+        {% endif %}
     });
 </script>
 {% endblock %}

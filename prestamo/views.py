@@ -48,69 +48,61 @@ def lista_prestamos(request):
 
 @login_required
 def procesar_devolucion(request, prestamo_id):
-    # Validar que solo el administrador pueda procesar devoluciones
     if not request.user.groups.filter(name="Administrador").exists():
         messages.error(request, "Acceso denegado: Solo el personal de laboratorio puede registrar devoluciones.")
         return redirect("dashboard")
         
     if request.method == "POST":
-        # Obtener el préstamo o lanzar un error 404 si no existe
         prestamo = get_object_or_404(Prestamo, id=prestamo_id)
         
         if prestamo.estado == "Activo":
-            # 1. Crear el registro histórico de la Devolución
             Devolucion.objects.create(
                 prestamo=prestamo, 
                 observaciones="Equipo recibido desde el panel de control rápido."
             )
             
-            # 2. Actualizar el estado del Préstamo a 'Devuelto'
             prestamo.estado = "Devuelto"
             prestamo.save()
             
-            # 3. Liberar el equipo poniendo su estado en 'Disponible'
             prestamo.equipo.estado = "Disponible"
             prestamo.equipo.save()
             
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    "success": True, 
+                    "message": "Equipo marcado como devuelto."
+                })
+            
             messages.success(request, f"Equipo {prestamo.equipo.codigo} marcado como devuelto correctamente y liberado en el inventario.")
         else:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    "success": False, 
+                    "message": "Este préstamo ya ha sido devuelto anteriormente."
+                })
             messages.warning(request, "Este préstamo ya ha sido devuelto anteriormente.")
             
-    # Redirección corregida usando el namespace de la app 'prestamo'
     return redirect("prestamo:lista_prestamos")
 
 
 @login_required
 def crear_prestamo(request):
-    print(">>> CREAR PRESTAMO <<<")
     if request.method == "POST":
-        print("=== Entró al POST ===")
-
         form = PrestamoForm(request.POST)
 
         if form.is_valid():
-            print("=== Formulario válido ===")
-
             prestamo = form.save(commit=False)
             prestamo.usuario = request.user
-
-            print("Equipo:", prestamo.equipo)
-            print("Estado:", prestamo.equipo.estado)
-
             prestamo.save()
-            print("=== Préstamo guardado ===")
 
             prestamo.equipo.estado = "Prestado"
             prestamo.equipo.save()
 
+            # Corregido con los espacios de nombres del proyecto
             if request.user.groups.filter(name="Usuario").exists():
                 return redirect("prestamo:mis_prestamos")
             else:
                 return redirect("prestamo:lista_prestamos")
-        else:
-            print("=== Errores ===")
-            print(form.errors)
-
     else:
         form = PrestamoForm()
 
@@ -173,7 +165,6 @@ def crear_devolucion(request):
         if form.is_valid():
             form.save()
             return redirect("prestamo:lista_prestamos")
-
     else:
         form = DevolucionForm()
 
@@ -222,25 +213,30 @@ def reporte_prestamos_pdf(request):
     p.setFont("Helvetica-Bold", 10)
     p.setFillColor(colors.white)
     p.drawString(55, 666, "Usuario")
-    p.drawString(150, 666, "Equipo")
-    p.drawString(270, 666, "F. Préstamo")
-    p.drawString(370, 666, "F. Devolución")
-    p.drawString(480, 666, "Estado")
+    p.drawString(145, 666, "Equipo")
+    p.drawString(295, 666, "F. Préstamo")      
+    p.drawString(400, 666, "F. Devolución")    
+    p.drawString(505, 666, "Estado")
 
     y = 640
     p.setFont("Helvetica", 9)
     p.setFillColor(colors.black)
 
-    prestamos = Prestamo.objects.select_related("usuario", "equipo")
+    prestamos = Prestamo.objects.select_related("usuario", "equipo").all().order_by('-fecha_prestamo')
 
     for pr in prestamos:
         fecha_prestamo_limpia = pr.fecha_prestamo.strftime('%Y-%m-%d %H:%M') if pr.fecha_prestamo else "---"
         fecha_devolucion_limpia = pr.fecha_devolucion.strftime('%Y-%m-%d %H:%M') if pr.fecha_devolucion else "---"
 
         p.drawString(55, y, str(pr.usuario.username).capitalize())
-        p.drawString(150, y, str(pr.equipo.nombre).capitalize())
-        p.drawString(270, y, fecha_prestamo_limpia)
-        p.drawString(370, y, fecha_devolucion_limpia)
+        
+        nombre_equipo = str(pr.equipo.nombre).capitalize()
+        if len(nombre_equipo) > 22:
+            nombre_equipo = Galbraith = nombre_equipo[:20] + "..."
+            
+        p.drawString(145, y, nombre_equipo)
+        p.drawString(295, y, fecha_prestamo_limpia)
+        p.drawString(400, y, fecha_devolucion_limpia)
         
         estado = str(pr.estado)
         if estado == "Activo":
@@ -250,7 +246,7 @@ def reporte_prestamos_pdf(request):
         else:
             p.setFillColor(colors.darkgrey)
             
-        p.drawString(480, y, estado)
+        p.drawString(505, y, estado)
         p.setFillColor(colors.black)
 
         p.setStrokeColor(colors.lightgrey)
@@ -273,11 +269,44 @@ def reporte_prestamos_pdf(request):
 def dashboard(request):
     is_admin = request.user.groups.filter(name="Administrador").exists()
     is_usuario = request.user.groups.filter(name="Usuario").exists()
+    ahora = timezone.now()
 
-    return render(request, "dashboard.html", {
-        "is_admin": is_admin,
-        "is_usuario": is_usuario,
-    })
+    if "user" in request.path or not is_admin:
+        mis_prestamos = Prestamo.objects.filter(usuario=request.user).order_by('-fecha_prestamo')
+        
+        for pr in mis_prestamos:
+            pr.devuelto = (pr.estado == 'Devuelto')
+
+        cant_activos = mis_prestamos.filter(estado='Activo').count()
+        cant_espera = mis_prestamos.filter(estado__icontains='espera').count()
+
+        prestamos_recortados = mis_prestamos[:5]
+
+        context = {
+            "is_admin": is_admin,
+            "is_usuario": is_usuario,
+            "prestamos": prestamos_recortados,
+            "cant_activos": cant_activos,
+            "cant_espera": cant_espera if cant_espera > 0 else 1,
+        }
+        return render(request, "dashboard_user.html", context)
+
+    else:
+        total_solicitudes = Prestamo.objects.count()
+        prestamos_activos = Prestamo.objects.filter(estado='Activo').count()
+        prestamos_vencidos = Prestamo.objects.filter(
+            estado='Activo', 
+            fecha_devolucion__lt=ahora
+        ).count()
+
+        context = {
+            "is_admin": is_admin,
+            "is_usuario": is_usuario,
+            "metric_activos": prestamos_activos,
+            "metric_vencidos": prestamos_vencidos,
+            "metric_total": total_solicitudes,
+        }
+        return render(request, "dashboard_admin.html", context)
 
 
 @login_required
@@ -297,6 +326,7 @@ def api_mis_prestamos(request):
                 horas = segundos_totales // 3600
                 minutos = (segundos_totales % 3600) // 60
                 tiempo_restante = f"Te quedan {horas}h {minutos}m" if horas > 0 else f"Te quedan {minutos} min"
+                # Corregido: 'minutes' cambiado a 'minutos'
                 alerta_clase = "warning" if horas == 0 and minutos < 30 else "info"
             else:
                 diferencia = ahora - pr.fecha_devolucion

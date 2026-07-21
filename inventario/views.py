@@ -16,7 +16,7 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q  # <--- IMPORTANTE: Importamos Q para las búsquedas avanzadas
+from django.db.models import Q
 
 # Para la generación del PDF de reporte
 from reportlab.lib.pagesizes import letter
@@ -26,11 +26,11 @@ from reportlab.lib import colors
 
 # Modelos y Formularios locales de inventario
 from .models import Equipo, Categoria 
-from .forms import EquipoForm  # Formulario Django para equipos
+from .forms import EquipoForm
 
 
 # =========================================================================
-# 1. BIOMETRÍA FACIAL & PROCESAMIENTO DE IMAGEN (OPTIMIZADO)
+# 1. BIOMETRÍA FACIAL & PROCESAMIENTO DE IMAGEN
 # =========================================================================
 
 def normalizar_iluminacion_rostro(imagen_cv2):
@@ -46,7 +46,6 @@ def normalizar_iluminacion_rostro(imagen_cv2):
 def vista_login_pagina(request):
     """
     Controlador unificado para la pantalla de inicio de sesión visual tradicional.
-    Usa renderizado directo a "login.html" (sin prefijo de subcarpeta).
     """
     if request.method == "POST":
         username = request.POST.get("username") or request.POST.get("username_admin") or request.POST.get("username_usuario")
@@ -71,22 +70,22 @@ def vista_login_pagina(request):
 @csrf_exempt
 def login_facial(request):
     """
-    Endpoint robusto para procesar el inicio de sesión por biometría compatible con FormData y Base64.
+    Endpoint para procesar el inicio de sesión por biometría compatible con FormData y Base64.
     """
     if request.method != "POST":
         return JsonResponse({"success": False, "message": "Método no permitido."}, status=405)
 
+    if face_recognition is None:
+        return JsonResponse({"success": False, "message": "El módulo face_recognition no está instalado en el servidor."}, status=500)
+
     try:
-        # 1. Intentar leer la imagen enviada como archivo binario (Blob de FormData)
         archivo_imagen = request.FILES.get('image')
         
         if archivo_imagen:
-            # Leer el archivo directo en memoria y decodificarlo con OpenCV
             filestr = archivo_imagen.read()
             np_arr = np.frombuffer(filestr, np.uint8)
             img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         else:
-            # Fallback en caso de que aún se envíe codificada por base64 en JSON o POST estándar
             uri_imagen = None
             if request.content_type == 'application/json' or request.body:
                 try:
@@ -117,7 +116,6 @@ def login_facial(request):
         rostros_actuales = face_recognition.face_encodings(img_procesada)
         
         if len(rostros_actuales) == 0:
-            print("[BIOMETRÍA] No se detectó ningún rostro en la cámara.")
             return JsonResponse({
                 "success": False, 
                 "message": "No se detectó un rostro claro. Por favor, enfoca bien tu cámara y evita contraluces."
@@ -127,50 +125,38 @@ def login_facial(request):
         usuarios = User.objects.all()
         usuario_encontrado = None
 
-        print(f"\n--- [INICIANDO COMPARACIÓN FACIAL] ---")
-        print(f"Usuarios en base de datos a comparar: {usuarios.count()}")
-
-        # Comparación uno a uno
         for usuario in usuarios:
             rostro_guardado_str = None
-            
             try:
                 if hasattr(usuario, 'perfil') and usuario.perfil and getattr(usuario.perfil, 'rostro_biometrico', None):
                     rostro_guardado_str = usuario.perfil.rostro_biometrico
                 elif getattr(usuario, 'rostro_biometrico', None):
                     rostro_guardado_str = usuario.rostro_biometrico
-            except Exception as e:
-                print(f"  [!] Error leyendo perfil de {usuario.username}: {e}")
+            except Exception:
                 continue
 
             if rostro_guardado_str:
                 try:
                     rostro_guardado = np.array(json.loads(rostro_guardado_str))
-                    
-                    # Distancia euclídea (0.0 es idéntico, 0.62 es el umbral de tolerancia ideal)
                     distancia = face_recognition.face_distance([rostro_guardado], rostro_actual_codificado)[0]
-                    print(f"  -> Comparando con '{usuario.username}' | Distancia calculada: {distancia:.4f}")
 
-                    if distancia <= 0.62:
+                    if distancia <= 0.45:
                         usuario_encontrado = usuario
-                        print(f"  [✓] ¡COINCIDENCIA DETECTADA! Usuario: {usuario.username}")
                         break
-                except Exception as ex:
-                    print(f"  [!] Error al comparar con {usuario.username}: {ex}")
+                except Exception:
                     continue
-            else:
-                print(f"  [-] El usuario '{usuario.username}' no tiene un rostro registrado.")
-
-        print("---------------------------------------\n")
 
         if usuario_encontrado is not None:
             login(request, usuario_encontrado)
-            # Redirecciona dinámicamente según rol
+
+            # Consumir mensajes previos residuales
+            storage = messages.get_messages(request)
+            for _ in storage:
+                pass
+
+            messages.success(request, f"¡Autenticación facial exitosa! Bienvenido, {usuario_encontrado.username}.")
             redirect_url = "/dashboard/admin/" if usuario_encontrado.is_staff or usuario_encontrado.is_superuser else "/dashboard/user/"
-            return JsonResponse({
-                "success": True, 
-                "redirect_url": redirect_url
-            })
+            return JsonResponse({"success": True, "redirect_url": redirect_url})
         else:
             return JsonResponse({
                 "success": False, 
@@ -178,7 +164,6 @@ def login_facial(request):
             })
 
     except Exception as e:
-        print(f"[ERROR SISTEMA BIOMÉTRICO]: {str(e)}")
         return JsonResponse({"success": False, "message": f"Error del sistema: {str(e)}"})
 
 
@@ -186,14 +171,15 @@ def login_facial(request):
 @login_required
 def registrar_rostro(request):
     """
-    API/Vista para capturar y guardar el rostro patrón en RGB real del usuario autenticado.
-    Soporta formatos binarios Multipart/FormData y JSON Base64.
+    API para registrar el rostro maestro del usuario autenticado.
     """
     if request.method != "POST":
         return render(request, "inventario/registrar_facial.html")
 
+    if face_recognition is None:
+        return JsonResponse({"success": False, "message": "Módulo de biometría no disponible en el servidor."}, status=500)
+
     try:
-        # Intentar leer la imagen enviada como archivo (FormData)
         archivo_imagen = request.FILES.get('image')
         
         if archivo_imagen:
@@ -213,7 +199,6 @@ def registrar_rostro(request):
                 uri_imagen = request.POST.get("imagen") or request.POST.get("image")
 
             if not uri_imagen:
-                print("[REGISTRO BIOMÉTRICO] Error: No se recibió la imagen.")
                 return JsonResponse({"success": False, "message": "Imagen de registro faltante."})
             
             if "," in uri_imagen:
@@ -226,14 +211,12 @@ def registrar_rostro(request):
             img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
         if img_bgr is None:
-            print("[REGISTRO BIOMÉTRICO] Error: La imagen está vacía o corrupta.")
             return JsonResponse({"success": False, "message": "La imagen está vacía o corrupta."})
 
         img_procesada = normalizar_iluminacion_rostro(img_bgr)
         rostros_detectados = face_recognition.face_encodings(img_procesada)
         
         if len(rostros_detectados) == 0:
-            print("[REGISTRO BIOMÉTRICO] Error: No se detectó ningún rostro.")
             return JsonResponse({
                 "success": False, 
                 "message": "No se detectó ningún rostro. Asegúrate de mirar de frente y despejar tu cara."
@@ -243,51 +226,37 @@ def registrar_rostro(request):
         vector_json_string = json.dumps(rostro_codificado.tolist())
         usuario_actual = request.user
         
-        print(f"\n--- [PROCESANDO REGISTRO DE ROSTRO] ---")
-        print(f"Usuario activo: {usuario_actual.username}")
-
         guardado_exitoso = False
         if hasattr(usuario_actual, 'perfil') and usuario_actual.perfil is not None:
             usuario_actual.perfil.rostro_biometrico = vector_json_string
             usuario_actual.perfil.save()
-            print("  [✓] Rostro guardado exitosamente en usuario_actual.perfil")
             guardado_exitoso = True
         else:
             try:
                 usuario_actual.rostro_biometrico = vector_json_string
                 usuario_actual.save()
-                print("  [✓] Rostro guardado exitosamente directo en el modelo User")
                 guardado_exitoso = True
-            except Exception as e_user:
-                print(f"  [!] Falló guardado directo en User: {e_user}")
+            except Exception:
+                pass
 
         if not guardado_exitoso:
-            print("  [!] Error crítico al guardar rostro.")
             return JsonResponse({
                 "success": False,
-                "message": "Error al guardar: Tu modelo de usuario no permite guardar datos de biometría."
+                "message": "Error al guardar: Tu modelo de usuario no permite almacenar datos de biometría."
             })
 
-        print("----------------------------------------\n")
-        return JsonResponse({
-            "success": True, 
-            "message": "¡Tu rostro maestro ha sido registrado con éxito!"
-        })
+        return JsonResponse({"success": True, "message": "¡Tu rostro maestro ha sido registrado con éxito!"})
 
     except Exception as e:
-        print(f"[REGISTRO BIOMÉTRICO] Error general: {str(e)}")
         return JsonResponse({"success": False, "message": f"Error al guardar: {str(e)}"})
 
 
 # =========================================================================
-# 2. VISTAS DE DASHBOARDS & LOGOUT (DIRECCIONAMIENTO SEGURO)
+# 2. VISTAS DE DASHBOARDS & LOGOUT
 # =========================================================================
 
 @login_required
 def dashboard(request):
-    """
-    Redirige dinámicamente al usuario según su rol hacia el dashboard correspondiente.
-    """
     if request.user.is_superuser or request.user.is_staff:
         return redirect('dashboard_admin')
     return redirect('dashboard_user')
@@ -295,22 +264,26 @@ def dashboard(request):
 
 @login_required
 def dashboard_admin(request):
-    """Renderiza el dashboard de Administrador (suelto en templates)."""
     return render(request, "dashboard_admin.html")
 
 
 @login_required
 def dashboard_user(request):
-    """Renderiza el dashboard del Usuario estándar cargando sus préstamos."""
     from prestamo.models import Prestamo
-    mis_prestamos = Prestamo.objects.filter(usuario=request.user).order_by('-id')
+    # ACTUALIZADO: Filtra y muestra únicamente los últimos 5 préstamos realizados
+    mis_prestamos = Prestamo.objects.filter(usuario=request.user).order_by('-id')[:5]
     return render(request, "dashboard_user.html", {"prestamos": mis_prestamos})
 
 
+@login_required
+def historial_completo_user(request):
+    from prestamo.models import Prestamo
+    # NUEVA VISTA: Obtiene todos los registros históricos del usuario sin límites
+    todos_mis_prestamos = Prestamo.objects.filter(usuario=request.user).order_by('-id')
+    return render(request, "inventario/historial_completo.html", {"prestamos": todos_mis_prestamos})
+
+
 def logout_usuario(request):
-    """
-    Cierra la sesión del usuario de forma segura y lo redirige a la pantalla de login.
-    """
     logout(request)
     messages.success(request, "Has cerrado sesión correctamente.")
     return redirect('login')
@@ -323,17 +296,13 @@ def logout_usuario(request):
 @login_required
 def lista_equipos(request):
     """
-    Lista todos los equipos del inventario aplicando filtros de búsqueda de texto y estado.
-    Calcula dinámicamente los contadores informativos.
+    Lista todos los equipos aplicando filtros de búsqueda y estado.
     """
-    # 1. Recuperamos los parámetros que provienen del formulario HTML
     buscar = request.GET.get('buscar', '').strip()
     estado = request.GET.get('estado', '').strip()
 
-    # 2. Iniciamos la consulta base con todos los equipos
     equipos = Equipo.objects.all()
 
-    # 3. Filtro por campo de texto (Código, Nombre, Marca o Modelo)
     if buscar:
         equipos = equipos.filter(
             Q(codigo__icontains=buscar) |
@@ -342,11 +311,9 @@ def lista_equipos(request):
             Q(modelo__icontains=buscar)
         )
 
-    # 4. Filtro por estado
     if estado:
         equipos = equipos.filter(estado=estado)
 
-    # 5. Cálculo de contadores para las tarjetas informativas superiores
     total_equipos = Equipo.objects.count()
     disponibles = Equipo.objects.filter(estado="Disponible").count()
     prestados = Equipo.objects.filter(estado="Prestado").count()
@@ -367,10 +334,6 @@ def lista_equipos(request):
 
 @login_required
 def crear_equipo(request):
-    """
-    Crear un equipo usando la validación de formularios de Django.
-    Esto permite renderizar las cajas de texto en tu HTML.
-    """
     if request.method == "POST":
         form = EquipoForm(request.POST)
         if form.is_valid():
@@ -385,9 +348,6 @@ def crear_equipo(request):
 
 @login_required
 def editar_equipo(request, pk):
-    """
-    Editar un equipo utilizando el formulario Django cargado con su instancia.
-    """
     equipo = get_object_or_404(Equipo, pk=pk)
     if request.method == "POST":
         form = EquipoForm(request.POST, instance=equipo)
@@ -452,16 +412,11 @@ def eliminar_categoria(request, pk):
 
 @login_required
 def api_estadisticas_dashboard(request):
-    total_equipos = Equipo.objects.count()
-    disponibles = Equipo.objects.filter(estado="Disponible").count()
-    prestados = Equipo.objects.filter(estado="Prestado").count()
-    mantenimiento = Equipo.objects.filter(estado="Mantenimiento").count()
-    
     data = {
-        "total": total_equipos,
-        "disponibles": disponibles,
-        "prestados": prestados,
-        "mantenimiento": mantenimiento, 
+        "total": Equipo.objects.count(),
+        "disponibles": Equipo.objects.filter(estado="Disponible").count(),
+        "prestados": Equipo.objects.filter(estado="Prestado").count(),
+        "mantenimiento": Equipo.objects.filter(estado="Mantenimiento").count(), 
     }
     return JsonResponse(data)
 
@@ -485,10 +440,10 @@ def reporte_equipos_pdf(request):
     story.append(Paragraph("Reporte General de Equipos de Laboratorio", title_style))
     story.append(Spacer(1, 10))
 
-    data = [["ID", "Nombre", "N° Serie", "Categoría", "Estado"]]
+    data = [["ID", "Nombre", "N° Serie/Código", "Categoría", "Estado"]]
     equipos = Equipo.objects.all()
     for eq in equipos:
-        n_serie = getattr(eq, 'serie', None) or getattr(eq, 'numero_serie', 'N/A')
+        n_serie = getattr(eq, 'serie', None) or getattr(eq, 'numero_serie', None) or getattr(eq, 'codigo', 'N/A')
         
         data.append([
             str(eq.id),

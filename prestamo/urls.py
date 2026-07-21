@@ -6,6 +6,9 @@ from . import views
 app_name = 'prestamo'
 
 urlpatterns = [
+    # 🌟 El espejo local del dashboard unificado para que funcione con prestamo:dashboard
+    path("dashboard/", views.dashboard, name="dashboard"),
+    
     path("", views.lista_prestamos, name="lista_prestamos"),
     path("nuevo/", views.crear_prestamo, name="crear_prestamo"),
     path("mis-prestamos/", views.mis_prestamos, name="mis_prestamos"),

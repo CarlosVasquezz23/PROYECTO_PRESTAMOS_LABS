@@ -1,22 +1,173 @@
 {% extends 'base.html' %}
+{% block title %}Registrar Equipo{% endblock %}
 
 {% block content %}
+<!-- ESTILOS VISUALES EXCLUSIVOS PARA EL FORMULARIO DE EQUIPOS -->
+<style>
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 
-<h2>Registrar Equipo</h2>
+    .animate-form-equipo {
+        animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
 
-<form method="post" class="card p-4 shadow-sm">
-    {% csrf_token %}
+    /* Estilo premium enfocado a los campos del formulario */
+    .custom-input:focus, .custom-select:focus {
+        border-color: #002D62 !important;
+        box-shadow: 0 0 0 0.25rem rgba(0, 45, 98, 0.15) !important;
+    }
 
-    {{ form.as_p }}
+    .btn-save {
+        background-color: #F2A900;
+        border: none;
+        color: white;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+    }
 
-    <button type="submit" class="btn btn-primary">
-        Guardar
-    </button>
+    .btn-save:hover {
+        background-color: #d49400;
+        color: white;
+        transform: translateY(-1px);
+    }
 
-    <a href="{% url 'lista_equipos' %}" class="btn btn-secondary">
-        Cancelar
-    </a>
+    .btn-cancel {
+        transition: background-color 0.2s ease, transform 0.1s ease;
+    }
 
-</form>
+    .btn-cancel:hover {
+        background-color: #f1f3f5;
+        transform: translateY(-1px);
+    }
+</style>
 
+<div class="container-fluid mt-4 mb-5 d-flex flex-column align-items-center animate-form-equipo">
+    
+    <!-- BLOQUE DE DETECCIÓN DE ERRORES (Herramienta de Diagnóstico) -->
+    {% if form.errors %}
+    <div class="card border-0 shadow-sm rounded-4 w-100 mb-4 p-3 bg-danger bg-opacity-10 border-start border-danger border-3" style="max-width: 850px;">
+        <div class="d-flex align-items-center text-danger mb-2">
+            <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+            <h6 class="mb-0 fw-bold">No se pudo guardar el equipo. Revisa lo siguiente:</h6>
+        </div>
+        <ul class="mb-0 text-danger small ps-4">
+            {% for field in form %}
+                {% for error in field.errors %}
+                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="card border-0 shadow rounded-4 w-100" style="max-width: 850px; background: #ffffff;">
+        <!-- Cabecera Institucional Azul -->
+        <div class="card-header text-white rounded-top-4 py-3" style="background-color: #002D62; border: none;">
+            <h5 class="mb-0 fw-bold d-flex align-items-center">
+                <i class="bi bi-pc-display me-2 fs-5"></i> Registrar Nuevo Equipo de Laboratorio
+            </h5>
+        </div>
+        
+        <div class="card-body p-4 p-md-5">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="row g-4">
+                    <!-- Fila 1: Nombre del Equipo (Ancho completo) -->
+                    <div class="col-12">
+                        <label for="{{ form.nombre.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Nombre del Equipo</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-laptop"></i></span>
+                            <input type="text" name="{{ form.nombre.name }}" id="{{ form.nombre.id_for_label }}" class="form-control custom-input py-2.5 border-start-0 bg-light bg-opacity-50" required placeholder="Ej. PC de Escritorio, Osciloscopio Digital..." value="{{ form.nombre.value|default:'' }}">
+                        </div>
+                    </div>
+
+                    <!-- Fila 2: Categoría y Código (2 Columnas) -->
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.categoria.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Categoría</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-tags"></i></span>
+                            <select name="{{ form.categoria.name }}" id="{{ form.categoria.id_for_label }}" class="form-select custom-select py-2.5 border-start-0 bg-light bg-opacity-50" required>
+                                {% for choice in form.categoria.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.categoria.value == choice.0 or form.categoria.value|slugify == choice.0|slugify %}selected{% endif %}>{{ choice.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.codigo.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Código de Inventario</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-hash"></i></span>
+                            <input type="text" name="{{ form.codigo.name }}" id="{{ form.codigo.id_for_label }}" class="form-control custom-input py-2.5 border-start-0 bg-light bg-opacity-50" required placeholder="Ej. LAB-001" value="{{ form.codigo.value|default:'' }}">
+                        </div>
+                    </div>
+
+                    <!-- Fila 3: Marca y Modelo (2 Columnas) -->
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.marca.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Marca</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-building"></i></span>
+                            <input type="text" name="{{ form.marca.name }}" id="{{ form.marca.id_for_label }}" class="form-control custom-input py-2.5 border-start-0 bg-light bg-opacity-50" required placeholder="Ej. Dell, HP, Tektronix" value="{{ form.marca.value|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.modelo.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Modelo</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-cpu"></i></span>
+                            <input type="text" name="{{ form.modelo.name }}" id="{{ form.modelo.id_for_label }}" class="form-control custom-input py-2.5 border-start-0 bg-light bg-opacity-50" required placeholder="Ej. Optiplex 3080" value="{{ form.modelo.value|default:'' }}">
+                        </div>
+                    </div>
+
+                    <!-- Fila 4: Ubicación y Estado (2 Columnas) -->
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.ubicacion.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Ubicación / Laboratorio</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-geo-alt"></i></span>
+                            <input type="text" name="{{ form.ubicacion.name }}" id="{{ form.ubicacion.id_for_label }}" class="form-control custom-input py-2.5 border-start-0 bg-light bg-opacity-50" required placeholder="Ej. Laboratorio 1, Planta Alta" value="{{ form.ubicacion.value|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.estado.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Estado Inicial</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-info-circle"></i></span>
+                            <select name="{{ form.estado.name }}" id="{{ form.estado.id_for_label }}" class="form-select custom-select py-2.5 border-start-0 bg-light bg-opacity-50" required>
+                                {% for choice in form.estado.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.estado.value == choice.0 or form.estado.value|slugify == choice.0|slugify %}selected{% endif %}>{{ choice.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Fila 5: Descripción (Ancho completo) -->
+                    <div class="col-12">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label fw-bold text-dark small text-uppercase tracking-wider">Descripción Breve</label>
+                        <textarea name="{{ form.descripcion.name }}" id="{{ form.descripcion.id_for_label }}" rows="3" class="form-control custom-input py-2.5 bg-light bg-opacity-50" placeholder="Detalles adicionales del equipo, accesorios incluidos o especificaciones técnicas importantes...">{{ form.descripcion.value|default:'' }}</textarea>
+                    </div>
+                </div>
+
+                <hr class="text-muted opacity-25 my-4">
+                
+                <!-- Botones de Acción -->
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'lista_equipos' %}" class="btn btn-light border btn-cancel shadow-sm px-4 py-2 fw-semibold rounded-3 text-secondary d-flex align-items-center gap-2">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-save shadow-sm px-4 py-2 fw-semibold rounded-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-check-circle"></i> Guardar Equipo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
